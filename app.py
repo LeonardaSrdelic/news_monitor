@@ -32,7 +32,8 @@ def main():
                  "Ako ovo polje nije prazno, preskače se dohvat bloga.",
         )
 
-        api_key_env = os.environ.get("SERPER_API_KEY", "")
+        # Pokušaj prvo iz Streamlit secreta (cloud), pa iz env var
+        api_key_env = st.secrets.get("SERPER_API_KEY", os.environ.get("SERPER_API_KEY", ""))
         api_key = st.text_input(
             "Serper API ključ (Google Search)",
             value=api_key_env,
