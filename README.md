@@ -1,4 +1,4 @@
-# Moja pretraživalica za praćenje članaka
+# pretraživalica za praćenje članaka
 
 Ovo je jednostavna Python aplikacija koja ti pomaže pratiti gdje se na webu pojavljuju tvoji članci sa bloga.
 
