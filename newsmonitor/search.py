@@ -64,6 +64,8 @@ TARGET_DOMAINS = [
     "jutarnji.hr",
     "vecernji.hr",
     "poslovni.hr",
+    "slobodnadalmacija.hr",
+    "bloomberg.com",
 ]
 
 
@@ -133,7 +135,8 @@ def search_for_reposts(
         queries = build_queries(post)[:max_queries_for_post]
         for query in queries:
             try:
-                results = serper_search(query, api_key=api_key, count=max_results_per_query)
+                count = min(max_results_per_query, 20)
+                results = serper_search(query, api_key=api_key, count=count)
             except Exception:
                 continue
             # Mali odmak izmedju poziva kako bi se smanjio rizik od rate limita
@@ -186,13 +189,36 @@ def search_for_reposts(
                 if not candidate_text and not fallback_text and not matched_title and not snippet:
                     continue
 
-                # Popusti prag za ciljne medijske domene
-                effective_threshold = similarity_threshold - 0.15 if is_target_domain else similarity_threshold
-                effective_threshold = max(0.05, effective_threshold)
+                # Traži spomen autorice ili institucije u pronađenom tekstu/snippetu/naslovu
+                def has_author_or_affil(text: str) -> bool:
+                    t = (text or "").lower()
+                    t = t.replace("ć", "c").replace("č", "c").replace("đ", "d").replace("š", "s").replace("ž", "z")
+                    return (
+                        "leonarda srdelic" in t
+                        or "srdelic" in t
+                        or "institut za javne financije" in t
+                        or "ijf" in t
+                    )
 
-                # Strozi prag za snippet-only podudaranja
+                if not any(
+                    has_author_or_affil(x)
+                    for x in [
+                        candidate_text,
+                        fallback_text,
+                        matched_title,
+                        snippet,
+                    ]
+                ):
+                    continue
+
+                # Popusti prag za ciljne medijske domene (agresivnije)
+                domain_bonus = 0.25
+                effective_threshold = similarity_threshold - domain_bonus if is_target_domain else similarity_threshold
+                effective_threshold = max(0.02, effective_threshold)
+
+                # Strozi prag za snippet-only podudaranja (ali dovoljno blazi zbog paywalla)
                 if sim_source == "snippet":
-                    snippet_threshold = effective_threshold + 0.05
+                    snippet_threshold = effective_threshold
                     if sim < snippet_threshold:
                         continue
                 else:

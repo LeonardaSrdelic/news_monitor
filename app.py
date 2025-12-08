@@ -32,6 +32,18 @@ def main():
                  "Ako ovo polje nije prazno, preskače se dohvat bloga.",
         )
 
+        source_doc_url = st.text_input(
+            "URL izvornog rada (opcionalno, HTML ili PDF)",
+            value="",
+            help="Ako dodaš URL izvornog dokumenta (npr. PDF u repozitoriju), koristit će se kao polazni tekst umjesto blog indeksa.",
+        )
+
+        source_doc_title = st.text_input(
+            "Naslov izvornog rada (opcionalno)",
+            value="",
+            help="Ako ostaviš prazno, kao naslov će se koristiti URL.",
+        )
+
         # Pokušaj prvo iz Streamlit secreta (cloud), pa iz env var
         api_key_env = st.secrets.get("SERPER_API_KEY", os.environ.get("SERPER_API_KEY", ""))
         api_key = st.text_input(
@@ -43,17 +55,17 @@ def main():
 
         similarity_threshold = st.slider(
             "Prag sličnosti",
-            min_value=0.3,
+            min_value=0.01,
             max_value=0.9,
-            value=0.5,
+            value=0.2,
             step=0.05,
-            help="Što je prag viši, to su pronalasci sličniji izvornom članku.",
+            help="Što je prag viši, to su pronalasci sličniji izvornom članku. Niži prag hvata više rezultata.",
         )
 
         max_results_per_query = st.number_input(
             "Maksimalan broj rezultata po upitu",
             min_value=5,
-            max_value=50,
+            max_value=20,
             value=15,
             step=1,
         )
@@ -74,6 +86,21 @@ def main():
         st.success("Koristim ručni upit za pretraživanje.")
         with st.expander("Pregled zadatih upita"):
             st.markdown(f"* {manual_query.strip()}")
+    elif source_doc_url.strip():
+        from newsmonitor.blog import extract_article_text
+
+        with st.spinner("Dohvaćam izvorni dokument..."):
+            doc_text = extract_article_text(source_doc_url.strip())
+
+        if not doc_text or len(doc_text.split()) < 50:
+            st.error("Nisam uspjela pročitati dovoljno teksta iz danog URL-a. Provjeri je li javno dostupan HTML/PDF.")
+            return
+
+        title_override = source_doc_title.strip() or source_doc_url.strip()
+        blog_posts = [BlogPost(title=title_override, url=source_doc_url.strip(), text=doc_text)]
+        st.success("Koristim uneseni URL izvornog rada kao polazni tekst.")
+        with st.expander("Pregled izvornog teksta"):
+            st.markdown(f"* [{blog_posts[0].title}]({blog_posts[0].url})  ({estimate_reading_time(blog_posts[0].text)} min čitanja)")
     else:
         with st.spinner("Dohvaćam objave s bloga..."):
             blog_posts = fetch_blog_posts(blog_index_url)
